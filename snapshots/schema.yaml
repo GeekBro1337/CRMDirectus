@@ -1,0 +1,67 @@
+version: 1
+directus: 11.6.0
+vendor: postgres
+
+collections:
+  - collection: users_custom
+    meta:
+      collection: users_custom
+      hidden: false
+      singleton: false
+    schema:
+      name: users_custom
+      comment: "Custom users table"
+
+fields:
+  - collection: users_custom
+    field: id
+    type: integer
+    schema:
+      name: id
+      is_primary_key: true
+      is_nullable: false
+      has_auto_increment: true
+
+  - collection: users_custom
+    field: username
+    type: string
+    schema:
+      name: username
+      is_nullable: false
+
+  - collection: users_custom
+    field: role
+    type: string
+    schema:
+      name: role
+      is_nullable: false
+
+relations: []
+
+permissions:
+  - role: 2034febb-f59f-47a0-bede-5bf1de1031ec
+    collection: users_custom
+    action: read
+    permissions: {}
+  - role: 2034febb-f59f-47a0-bede-5bf1de1031ec
+    collection: users_custom
+    action: create
+    permissions: {}
+  - role: 2034febb-f59f-47a0-bede-5bf1de1031ec
+    collection: users_custom
+    action: update
+    permissions: {}
+  - role: 2034febb-f59f-47a0-bede-5bf1de1031ec
+    collection: users_custom
+    action: delete
+    permissions: {}
+
+users:
+  - id: 11111111-2222-3333-4444-555555555555
+    email: app@local.dev
+    password: $argon2id$v=19$m=65536,t=3,p=4$ZGVtbw$h3F6m6iQjj2BCY9wH8yG2w # можно оставить фиктивный, логиниться не будем
+    role: 2034febb-f59f-47a0-bede-5bf1de1031ec
+    status: active
+    tokens:
+      - name: "App Full Access"
+        token: super_app_token_123456789

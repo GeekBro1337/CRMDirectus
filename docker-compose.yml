@@ -1,0 +1,65 @@
+name: directus-stack
+
+services:
+  database:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      TZ: ${TZ}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      # Важно: проверяем СЕРВИС, а не localhost
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  directus:
+    image: directus/directus:latest
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+    ports:
+      - "${PORT}:8055"
+    environment:
+      # БД
+      DB_CLIENT: pg
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_DATABASE: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+      # Базовые настройки Directus
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      PUBLIC_URL: ${PUBLIC_URL}
+      KEY: ${KEY}
+      SECRET: ${SECRET}
+      WEBSOCKETS_ENABLED: "true"
+      LOG_LEVEL: info
+      TZ: ${TZ}
+
+      # CORS по умолчанию открыт (можешь ужесточить под свой домен)
+      CORS_ENABLED: "true"
+      CORS_ORIGIN: "*"
+
+    volumes:
+      # Хранилище загрузок/расширений/снимков
+      - directus_uploads:/directus/uploads
+      - directus_extensions:/directus/extensions
+      - directus_snapshots:/directus/snapshots
+      - ./snapshots:/directus/snapshots
+      # Если захочешь config.yaml — раскомментируй следующую строку и создай файл ./directus/config.yaml
+      # - ./directus:/directus/config
+
+volumes:
+  db_data:
+  directus_uploads:
+  directus_extensions:
+  directus_snapshots:
