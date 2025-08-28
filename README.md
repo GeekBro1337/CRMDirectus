@@ -443,3 +443,107 @@ docker compose exec database psql -U directus -d directus
 # Узнать UUID роли администратора
 docker compose exec database psql -U directus -d directus -c "SELECT id,name FROM directus_roles;"
 ```
+
+# Заметка про авторизацию
+
+# 1) Что это за схема
+
+- Авторизация пользователей по **email + password** в **Directus**.
+- В ответ Directus выдаёт **JWT-пару**: `access_token` (≈15 мин) и `refresh_token`.
+- В Nuxt все запросы идут через **серверные эндпоинты**; токены хранятся в **HTTP-only cookies** (безопасно).
+- При истечении access токена сервер Nuxt сам делает `/auth/refresh` и **ретраит** исходный запрос.
+
+# 2) Базовые эндпоинты Directus
+
+- Логин: `POST /auth/login` → `{ data: { access_token, refresh_token, expires } }`
+- Обновить: `POST /auth/refresh` → новая пара токенов
+- Выход: `POST /auth/logout` (ревокация refresh токена)
+- Текущий юзер: `GET /users/me`
+- Данные: `GET /items/<collection>` (+ `filter[...]` по необходимости)
+
+Примеры curl:
+
+```bash
+curl -X POST http://localhost:8055/auth/login -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"ChangeMe!123"}'
+
+curl -H "Authorization: Bearer <access>" http://localhost:8055/users/me
+curl -X POST http://localhost:8055/auth/refresh -H "Content-Type: application/json" \
+  -d '{"refresh_token":"<refresh>"}'
+curl -X POST http://localhost:8055/auth/logout -H "Content-Type: application/json" \
+  -d '{"refresh_token":"<refresh>"}'
+```
+
+# 3) Что настроено в Nuxt
+
+## runtimeConfig
+
+```ts
+// nuxt.config.ts
+export default defineNuxtConfig({
+  runtimeConfig: {
+    directusUrl: process.env.DIRECTUS_URL || "http://localhost:8055",
+    public: {
+      directusUrl: process.env.DIRECTUS_URL || "http://localhost:8055",
+    },
+  },
+});
+```
+
+## Серверные роуты (Nitro)
+
+- **POST `/api/auth/login`** — проксирует `POST /auth/login`, кладёт куки:
+
+  - `access_token` (httpOnly)
+  - `refresh_token` (httpOnly)
+
+- **POST `/api/auth/logout`** — проксирует `POST /auth/logout`, чистит куки.
+- **`directusFetch(event, path, opts)`** — утилита:
+
+  - добавляет `Authorization: Bearer <access_token>` из cookie;
+  - при **401** делает `POST /auth/refresh`, обновляет куки, **повторяет** запрос.
+
+- Прокси-роуты:
+
+  - `GET /api/me` → `/users/me`
+  - `GET /api/users_custom` → `/items/users_custom`
+
+## Клиент
+
+- Страница `/login` шлёт `POST /api/auth/login` (тело: `{ email, password }`).
+- Дальше страницы/компоненты ходят только к своим `/api/*` (а не напрямую в Directus).
+- Для UI мы используем `useAsyncData`/`$fetch` к `/api/users_custom` и т.п.
+
+# 4) Как проверить (smoke-test)
+
+1. **Логин через Nuxt**: форма `/login` → `200 OK`, две httpOnly cookies есть.
+2. **Кто я**: `GET /api/me` возвращает профиль.
+3. **Данные**: `GET /api/users_custom` → `200 OK` (или с фильтром `?filter[role][_eq]=Superman`).
+4. **Авто-refresh**: удаляешь `access_token` cookie, обновляешь страницу → сервер сам обновит токен и данные придут.
+5. **Logout**: `POST /api/auth/logout` → куки очищены; защищённые страницы редиректят на `/login`.
+
+# 5) Роли и доступ
+
+- Право на чтение/запись данных определяется **ролью** пользователя и **Access Policies** в Directus.
+- Если API даёт `403 FORBIDDEN` — проверь **Settings → Roles & Permissions** (или политику) для коллекции.
+
+# 6) Частые проблемы
+
+- **500 на `/api/auth/login`** — нет `DIRECTUS_URL` в runtime или Directus вернул ошибку; смотри лог Nuxt и текст `statusMessage`.
+- **401 INVALID_CREDENTIALS** — неверные данные/протухший токен. Проверь `GET /users/me` тем же токеном.
+- **403 FORBIDDEN** — у роли нет прав на коллекцию (`users_custom`).
+- **CORS** — в dev лучше ходить через Nuxt сервер (`/api/*`), а не напрямую из браузера в `:8055`.
+
+# 7) Куда смотреть в коде (быстро)
+
+- `server/api/auth/login.post.ts` — логин + установка httpOnly cookies
+- `server/api/auth/logout.post.ts` — ревокация и чистка
+- `server/utils/directusFetch.ts` — авторизация, авто-refresh, retry
+- `server/api/me.get.ts`, `server/api/users_custom.get.ts` — примеры прокси
+
+# 8) Безопасность (напоминание)
+
+- Refresh-токен **никогда** не хранить в localStorage — только httpOnly cookie.
+- На проде для куков: `secure: true`, `sameSite: 'strict'`, короткий TTL access токена.
+- Минимизируй права ролей через Access Policies (least privilege).
+- Для машинного доступа (сервер-сервер) используй **Static Access Token**, а не пользовательский JWT.
