@@ -1,60 +1,67 @@
 <script setup lang="ts">
-const { data: users, error } = await useAsyncData("all-users", () =>
-  $fetch("http://localhost:8055/items/users_custom", {
-    headers: {
-      Authorization: "Bearer KSU4y09XAXyHZzX1LyEeKXwAickumCoR",
-    },
-  }).then((r: any) => r.data)
-);
+const { fetchUsersCustom, logout } = useAuth();
+const {
+  data: rows,
+  refresh,
+  error,
+} = await useAsyncData("users_custom", () => fetchUsersCustom());
 
-const admins = computed(() => users.value?.filter((u) => u.role === "Admin"));
-const normalUsers = computed(() =>
-  users.value?.filter((u) => u.role === "User")
+const admins = computed(() =>
+  (rows.value || []).filter((x: any) => x.role === "Admin")
+);
+const users = computed(() =>
+  (rows.value || []).filter((x: any) => x.role === "User")
 );
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-900 text-white p-8 space-y-10">
-    <h1 class="text-3xl font-bold">Users Custom</h1>
+  <div class="min-h-screen bg-gray-50 p-8 space-y-8">
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-bold">Users Custom</h1>
+      <button
+        @click="
+          logout();
+          navigateTo('/login');
+        "
+        class="px-3 py-2 rounded bg-gray-900 text-white"
+      >
+        Выйти
+      </button>
+    </div>
 
-    <!-- Admins -->
     <section>
-      <h2 class="text-2xl font-semibold mb-4 text-red-400">Admins</h2>
+      <h2 class="text-xl font-semibold mb-3">Admins</h2>
       <div
-        v-if="admins?.length"
+        v-if="admins.length"
         class="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
       >
         <div
           v-for="a in admins"
           :key="a.id"
-          class="p-6 rounded-2xl shadow-lg bg-gray-800 hover:bg-gray-700 transition"
+          class="p-4 rounded-xl bg-white shadow"
         >
-          <h3 class="text-xl font-semibold">{{ a.username }}</h3>
-          <p class="text-red-300">{{ a.role }}</p>
+          <div class="font-medium">{{ a.username }}</div>
+          <div class="text-sm text-gray-500">{{ a.role }}</div>
         </div>
       </div>
-      <p v-else class="text-gray-400">Нет админов</p>
+      <p v-else class="text-gray-500">Нет админов</p>
     </section>
 
-    <!-- Users -->
     <section>
-      <h2 class="text-2xl font-semibold mb-4 text-indigo-400">Users</h2>
-      <div
-        v-if="normalUsers?.length"
-        class="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
-      >
+      <h2 class="text-xl font-semibold mb-3">Users</h2>
+      <div v-if="users.length" class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <div
-          v-for="u in normalUsers"
+          v-for="u in users"
           :key="u.id"
-          class="p-6 rounded-2xl shadow-lg bg-gray-800 hover:bg-gray-700 transition"
+          class="p-4 rounded-xl bg-white shadow"
         >
-          <h3 class="text-xl font-semibold">{{ u.username }}</h3>
-          <p class="text-indigo-300">{{ u.role }}</p>
+          <div class="font-medium">{{ u.username }}</div>
+          <div class="text-sm text-gray-500">{{ u.role }}</div>
         </div>
       </div>
-      <p v-else class="text-gray-400">Нет пользователей</p>
-    </section>
+      <p v-else class="text-gray-500">Нет пользователей</p>
 
-    <p v-if="error" class="text-red-400">Ошибка: {{ error.message }}</p>
+      <p v-if="error" class="text-red-600 mt-6">Ошибка: {{ error.message }}</p>
+    </section>
   </div>
 </template>
