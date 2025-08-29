@@ -2,13 +2,15 @@ export default defineAppConfig({
   // https://ui.nuxt.com/getting-started/theme#design-system
   ui: {
     colors: {
-      primary: 'emerald',
-      neutral: 'slate',
+      // Чёрно-белая палитра
+      primary: 'zinc',
+      neutral: 'zinc',
     },
     button: {
       defaultVariants: {
-        // Set default button color to neutral
-        // color: 'neutral'
+        // Минимализм: нейтральные кнопки по умолчанию
+        color: 'neutral',
+        variant: 'solid'
       }
     }
   }

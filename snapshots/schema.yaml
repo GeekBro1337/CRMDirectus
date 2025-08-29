@@ -39,6 +39,7 @@ fields:
 relations: []
 
 permissions:
+  # --- users_custom: полный доступ для твоего admin-UUID ---
   - role: 2034febb-f59f-47a0-bede-5bf1de1031ec
     collection: users_custom
     action: read
@@ -56,10 +57,53 @@ permissions:
     action: delete
     permissions: {}
 
+  # --- Даем читать СВОЙ профиль из directus_users (для /users/me) ---
+  - role: 2034febb-f59f-47a0-bede-5bf1de1031ec
+    collection: directus_users
+    action: read
+    # какие поля видны
+    fields:
+      - id
+      - email
+      - first_name
+      - last_name
+      - role
+      - avatar
+    # только свой пользователь
+    permissions:
+      _and:
+        - id:
+            _eq: "$CURRENT_USER"
+
+  # --- Даем читать имя роли, чтобы /users/me вернул role.name ---
+  - role: 2034febb-f59f-47a0-bede-5bf1de1031ec
+    collection: directus_roles
+    action: read
+    fields:
+      - id
+      - name
+    permissions: {} # можно сузить при желании
+
+  # --- Даем читать файл-аватар (assets) только свой ---
+  - role: 2034febb-f59f-47a0-bede-5bf1de1031ec
+    collection: directus_files
+    action: read
+    fields:
+      - id
+      - filename_download
+      - title
+      - type
+      - width
+      - height
+    permissions:
+      _and:
+        - id:
+            _eq: "$CURRENT_USER.avatar"
+
 users:
   - id: 11111111-2222-3333-4444-555555555555
     email: app@local.dev
-    password: $argon2id$v=19$m=65536,t=3,p=4$ZGVtbw$h3F6m6iQjj2BCY9wH8yG2w # можно оставить фиктивный, логиниться не будем
+    password: $argon2id$v=19$m=65536,t=3,p=4$ZGVtbw$h3F6m6iQjj2BCY9wH8yG2w
     role: 2034febb-f59f-47a0-bede-5bf1de1031ec
     status: active
     tokens:

@@ -1,9 +1,19 @@
 export default defineNuxtRouteMiddleware(async (to) => {
+  // Не проверяем авторизацию на странице логина
   if (to.path === "/login") return;
-  try {
-    const me = await $fetch("/api/me");
-    if (!me) return navigateTo("/login");
-  } catch {
-    return navigateTo("/login");
+
+  // Используем общее состояние авторизации
+  const { me, fetchMe } = useAuth();
+
+  // Если данных нет — пытаемся получить их один раз
+  if (!me.value) {
+    try {
+      await fetchMe();
+    } catch {
+      // игнорируем — обработаем ниже
+    }
   }
+
+  // Если после запроса пользователя все еще нет — отправляем на логин
+  if (!me.value) return navigateTo("/login");
 });

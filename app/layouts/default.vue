@@ -5,7 +5,7 @@ await fetchMe(); // SSR: сработает на сервере, данные б
 </script>
 
 <template>
-  <div>
+  <div class="min-h-dvh bg-white text-black">
     <AppHeader />
     <NuxtPage />
   </div>
